@@ -134,7 +134,7 @@ func newLocalListener() net.Listener {
 	return ln
 }
 
-func testConnWithDC(clientMsg, serverMsg string, clientConfig, serverConfig *tls.Config, peer string) (isDC bool, err error) {
+func testConn(clientMsg, serverMsg string, clientConfig, serverConfig *tls.Config, peer string) (err error) {
 	ln := newLocalListener()
 	defer ln.Close()
 
@@ -158,13 +158,13 @@ func testConnWithDC(clientMsg, serverMsg string, clientConfig, serverConfig *tls
 
 	client, err := tls.Dial("tcp", ln.Addr().String(), clientConfig)
 	if err != nil {
-		return false, err
+		return err
 	}
 	defer client.Close()
 
 	server := <-serverCh
 	if server == nil {
-		return false, serverErr
+		return serverErr
 	}
 
 	bufLen := len(clientMsg)
@@ -176,13 +176,13 @@ func testConnWithDC(clientMsg, serverMsg string, clientConfig, serverConfig *tls
 	client.Write([]byte(clientMsg))
 	n, err := server.Read(buf)
 	if err != nil || n != len(clientMsg) || string(buf[:n]) != clientMsg {
-		return false, fmt.Errorf("Server read = %d, buf= %q; want %d, %s", n, buf, len(clientMsg), clientMsg)
+		return fmt.Errorf("Server read = %d, buf= %q; want %d, %s", n, buf, len(clientMsg), clientMsg)
 	}
 
 	server.Write([]byte(serverMsg))
 	n, err = client.Read(buf)
 	if n != len(serverMsg) || err != nil || string(buf[:n]) != serverMsg {
-		return false, fmt.Errorf("Client read = %d, %v, data %q; want %d, nil, %s", n, err, buf, len(serverMsg), serverMsg)
+		return fmt.Errorf("Client read = %d, %v, data %q; want %d, nil, %s", n, err, buf, len(serverMsg), serverMsg)
 	}
 
 	//VersionTLS10 = 0x0301
@@ -193,7 +193,7 @@ func testConnWithDC(clientMsg, serverMsg string, clientConfig, serverConfig *tls
 	log.Printf("%x", server.ConnectionState().Version)
 	log.Println("")
 
-	return false, nil
+	return nil
 }
 
 func main() {
@@ -203,7 +203,7 @@ func main() {
 	serverConfig := initServer()
 	clientConfig := initClient()
 
-	_, err := testConnWithDC(clientMsg, serverMsg, clientConfig, serverConfig, "server")
+	err := testConn(clientMsg, serverMsg, clientConfig, serverConfig, "server")
 
 	if err != nil {
 		log.Println("")
